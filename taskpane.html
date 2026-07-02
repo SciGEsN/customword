@@ -214,8 +214,12 @@
 
     <div class="divider" style="height:1px;background:var(--line);margin:20px 0;"></div>
 
-    <p class="sub"><b>B. 챕터(헤딩)별 단어 수</b><br>헤딩 스타일 문단을 기준으로 구간을 나눠 각 챕터의 단어 수를 집계합니다.</p>
-    <button class="primary-btn" id="analyzeChapterBtn">챕터별 집계 실행</button>
+    <p class="sub"><b>B. 챕터별 단어 수 (선택한 스타일 기준)</b><br>문서에서 챕터 제목 하나를 선택한 뒤 아래 버튼을 누르면, 그 문단의 스타일과 같은 스타일을 가진 문단마다 새 챕터로 구분해서 단어 수를 집계합니다.</p>
+    <div class="row">
+      <button class="primary-btn" id="pickChapterStyleBtn">선택한 문단을 챕터 기준으로 지정</button>
+    </div>
+    <div class="status" id="statusChapterStyle"></div>
+    <button class="primary-btn" id="analyzeChapterBtn" disabled>챕터별 집계 실행</button>
     <div class="status" id="statusChapter"></div>
     <div id="resultsChapter"></div>
 
@@ -799,20 +803,48 @@ document.getElementById("viewSelect").addEventListener("change", async (e)=>{
 });
 
 /* ============================================================
-   ⑥-B 챕터(헤딩)별 단어 수
+   ⑥-B 챕터별 단어 수 (선택한 스타일 기준)
    ============================================================ */
-function groupByChapter(paragraphs){
+let chapterTargetStyle = null;
+
+document.getElementById("pickChapterStyleBtn").addEventListener("click", async ()=>{
+  try{
+    const style = await Word.run(async (context)=>{
+      const range = context.document.getSelection();
+      const paras = range.paragraphs;
+      paras.load("items");
+      await context.sync();
+      if (paras.items.length===0) return null;
+      paras.items[0].load("style,text");
+      await context.sync();
+      return { style: paras.items[0].style, text: paras.items[0].text };
+    });
+    if (!style || !style.style){
+      showStatus("statusChapterStyle", "먼저 문서에서 챕터 제목 문단을 클릭(선택)한 뒤 눌러주세요.", "err");
+      return;
+    }
+    chapterTargetStyle = style.style;
+    const preview = (style.text||"").trim().slice(0,20);
+    showStatus("statusChapterStyle", `기준 스타일 지정됨: "${chapterTargetStyle}" (예: "${preview}")`, "ok");
+    document.getElementById("analyzeChapterBtn").disabled = false;
+  } catch(err){ showStatus("statusChapterStyle", "오류: " + err.message, "err"); }
+});
+
+// targetStyle이 주어지면 그 스타일과 정확히 일치하는 문단을 챕터 경계로 사용.
+// targetStyle이 없으면 기존 isHeading(styleBuiltIn) 방식으로 대체(fallback).
+function groupByChapter(paragraphs, targetStyle){
   const chapters = [];
   let current = null;
   paragraphs.forEach((p, idx)=>{
-    if (p.isHeading && p.text){
+    const isChapterStart = targetStyle ? (p.style === targetStyle) : (p.isHeading && p.text);
+    if (isChapterStart && p.text){
       current = { title: p.text, startPara: idx+1, wordCount: 0 };
       chapters.push(current);
       return;
     }
     if (!p.text) return;
     if (!current){
-      current = { title: "(첫 헤딩 이전)", startPara: idx+1, wordCount: 0 };
+      current = { title: "(첫 챕터 제목 이전)", startPara: idx+1, wordCount: 0 };
       chapters.push(current);
     }
     current.wordCount += countWords(p.text);
@@ -825,9 +857,9 @@ document.getElementById("analyzeChapterBtn").addEventListener("click", async ()=
   btn.disabled = true; showStatus("statusChapter", "문서를 읽는 중...", "ok");
   try{
     const paragraphs = await getParagraphsFromDoc();
-    const chapters = groupByChapter(paragraphs);
+    const chapters = groupByChapter(paragraphs, chapterTargetStyle);
     const resultsEl = document.getElementById("resultsChapter");
-    if (chapters.length===0){ resultsEl.innerHTML = `<div class="empty-note">헤딩 스타일 문단을 찾지 못했습니다.</div>`; }
+    if (chapters.length===0){ resultsEl.innerHTML = `<div class="empty-note">챕터 제목에 해당하는 문단을 찾지 못했습니다.</div>`; }
     else {
       const maxCount = Math.max(...chapters.map(c=>c.wordCount), 1);
       let html = `<div class="chart-box">`;
