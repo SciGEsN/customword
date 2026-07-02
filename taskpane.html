@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manuscript Toolkit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Spectral:ital,wght@0,400;0,600;0,700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+<style>
+  :root{
+    --ink-navy:#14213D; --card-cream:#EFE7D8; --card-cream-dark:#E2D8C3;
+    --stamp-red:#A8322D; --brass:#B8934A; --ink:#1B1B1B; --ink-soft:#5B5748;
+    --line:#C9BFA6; --ok-green:#3F6E4E;
+  }
+  *{ box-sizing:border-box; }
+  body{
+    margin:0; background:var(--card-cream); font-family:'Spectral', serif;
+    color:var(--ink); padding:16px 14px 30px; font-size:13px;
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace; font-size:10px; letter-spacing:0.2em;
+    color:var(--brass); text-transform:uppercase; margin-bottom:4px;
+  }
+  h1{ font-size:17px; font-weight:700; margin:0 0 12px; }
+
+  select#viewSelect{
+    width:100%; font-family:'IBM Plex Mono', monospace; font-size:11.5px;
+    padding:9px 10px; border:1px solid var(--line); border-radius:2px;
+    background:#FBF8F1; color:var(--ink); margin-bottom:16px;
+  }
+
+  .view-panel{ display:none; }
+  .view-panel.active{ display:block; }
+
+  label{
+    font-family:'IBM Plex Mono', monospace; font-size:10px; letter-spacing:0.08em;
+    text-transform:uppercase; color:var(--ink-soft); display:block; margin-bottom:5px;
+  }
+  p.sub{
+    font-family:'IBM Plex Mono', monospace; font-size:10.5px; color:var(--ink-soft);
+    margin:0 0 14px; line-height:1.6;
+  }
+
+  textarea{
+    width:100%; min-height:110px; background:#FBF8F1; border:1px solid var(--line);
+    border-radius:2px; padding:10px; font-family:'IBM Plex Mono', monospace; font-size:11px;
+    line-height:1.6; color:var(--ink); resize:vertical;
+  }
+  input[type=number], input[type=range]{
+    font-family:'IBM Plex Mono', monospace; font-size:12px;
+    padding:7px 8px; border:1px solid var(--line); border-radius:2px; background:#FBF8F1;
+  }
+  input[type=number]{ width:64px; }
+  input[type=checkbox]{ accent-color:var(--stamp-red); width:14px; height:14px; }
+
+  .row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:10px; }
+
+  button.primary-btn{
+    background:var(--ink-navy); color:var(--card-cream); border:none;
+    padding:9px 16px; font-family:'IBM Plex Mono', monospace; font-size:11px;
+    letter-spacing:0.05em; text-transform:uppercase; cursor:pointer; border-radius:2px;
+  }
+  button.primary-btn:hover{ background:#1F2E52; }
+  button.primary-btn:disabled{ opacity:0.4; cursor:not-allowed; }
+
+  .goto-btn{
+    background:var(--card-cream-dark); border:1px solid var(--brass); color:var(--ink-navy);
+    font-family:'IBM Plex Mono', monospace; font-size:10.5px; font-weight:600;
+    padding:2px 6px; border-radius:2px; cursor:pointer;
+  }
+  .goto-btn:hover{ background:var(--brass); color:#fff; }
+
+  .status{
+    margin-top:10px; font-family:'IBM Plex Mono', monospace; font-size:11px;
+    padding:9px 10px; border-radius:2px; display:none; line-height:1.6; white-space:pre-wrap;
+  }
+  .status.show{ display:block; }
+  .status.ok{ background:rgba(63,110,78,0.12); color:var(--ok-green); border:1px solid rgba(63,110,78,0.3); }
+  .status.err{ background:rgba(168,50,45,0.12); color:var(--stamp-red); border:1px solid rgba(168,50,45,0.3); }
+
+  .stats-row{ display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--line); border:1px solid var(--line); margin:14px 0; }
+  .stat{ background:var(--card-cream); padding:10px 6px; text-align:center; }
+  .stat .num{ font-size:19px; font-weight:700; color:var(--ink-navy); display:block; line-height:1.1; }
+  .stat .lbl{ font-family:'IBM Plex Mono', monospace; font-size:8.5px; letter-spacing:0.04em; text-transform:uppercase; color:var(--ink-soft); margin-top:4px; display:block; }
+
+  h2.section-title{
+    font-family:'IBM Plex Mono', monospace; font-size:10.5px; letter-spacing:0.1em;
+    text-transform:uppercase; color:var(--ink-navy); margin:16px 0 8px;
+    border-bottom:1px solid var(--line); padding-bottom:5px;
+  }
+
+  .card-item{
+    background:#FBF8F1; border:1px solid var(--line); border-radius:2px;
+    padding:10px 12px; margin-bottom:8px; font-size:12px; line-height:1.6;
+  }
+  .card-item .meta{
+    font-family:'IBM Plex Mono', monospace; font-size:10px; color:var(--brass);
+    margin-bottom:5px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;
+  }
+  .card-item mark{ background:rgba(168,50,45,0.16); color:var(--stamp-red); font-weight:600; padding:0 2px; border-radius:2px; }
+
+  table.mini-table{ width:100%; border-collapse:collapse; font-size:11px; background:#FBF8F1; border:1px solid var(--line); }
+  table.mini-table th, table.mini-table td{ padding:6px 7px; border-bottom:1px solid var(--line); text-align:left; vertical-align:top; }
+  table.mini-table th{ font-family:'IBM Plex Mono', monospace; font-size:9px; text-transform:uppercase; color:var(--ink-soft); background:var(--card-cream-dark); }
+  .status-dup{ color:var(--stamp-red); font-weight:600; font-family:'IBM Plex Mono', monospace; font-size:10px; }
+  .status-uniq{ color:var(--ok-green); font-weight:600; font-family:'IBM Plex Mono', monospace; font-size:10px; }
+
+  .chart-box{ background:#FBF8F1; border:1px solid var(--line); border-radius:2px; padding:12px 12px; margin:10px 0; }
+  .bar-row{ display:grid; grid-template-columns:74px 1fr 26px; align-items:center; gap:6px; margin-bottom:6px; }
+  .bar-row .bar-label{ font-family:'IBM Plex Mono', monospace; font-size:10.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:right; }
+  .bar-track{ background:var(--card-cream-dark); border-radius:2px; height:11px; overflow:hidden; }
+  .bar-fill{ height:100%; background:linear-gradient(90deg, var(--brass), var(--stamp-red)); }
+  .bar-row .bar-count{ font-family:'IBM Plex Mono', monospace; font-size:10px; color:var(--ink-soft); }
+
+  .empty-note{
+    font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--ink-soft);
+    background:#FBF8F1; border:1px dashed var(--line); padding:12px; text-align:center; border-radius:2px;
+  }
+  .info-box{
+    margin-top:14px; background:#FBF8F1; border:1px solid var(--line); border-radius:2px;
+    padding:10px 12px; font-family:'IBM Plex Mono', monospace; font-size:9.5px; color:var(--ink-soft); line-height:1.7;
+  }
+  .footnote{ margin-top:18px; font-family:'IBM Plex Mono', monospace; font-size:9.5px; color:var(--ink-soft); text-align:center; opacity:0.8; }
+</style>
+</head>
+<body>
+  <div class="eyebrow">Manuscript Toolkit</div>
+  <h1>논문 마무리 점검 도구</h1>
+
+  <select id="viewSelect">
+    <option value="jump">① 문단 이동</option>
+    <option value="dedup">② 중복 레퍼런스 체크</option>
+    <option value="locator">③ 임시 인용 위치 찾기</option>
+    <option value="abbrev">④ 약어 일관성 체크</option>
+    <option value="wordfreq">⑤ 단어 반복 체크</option>
+  </select>
+
+  <!-- ① 문단 이동 -->
+  <div class="view-panel active" id="view-jump">
+    <p class="sub">문단 번호(P번호)를 입력하면 해당 위치로 커서를 이동하고 선택합니다.</p>
+    <label for="paraNum">문단 번호</label>
+    <div class="row">
+      <input type="number" id="paraNum" min="1" placeholder="예: 32" style="flex:1;">
+      <button class="primary-btn" id="goBtn">이동</button>
+    </div>
+    <div class="status" id="statusJump"></div>
+  </div>
+
+  <!-- ② 중복 레퍼런스 체크 -->
+  <div class="view-panel" id="view-dedup">
+    <p class="sub">번호 매긴 참고문헌 목록을 붙여넣으면 중복 항목을 찾습니다.</p>
+    <label for="refInput">참고문헌 목록</label>
+    <textarea id="refInput" placeholder="1. Hartman, N. et al. ...&#10;2. Pyurbeeva, E. ..."></textarea>
+    <div class="row" style="margin-top:10px;">
+      <label style="margin:0;" for="threshold">임계값</label>
+      <input type="range" id="threshold" min="0.5" max="1.0" step="0.01" value="0.85" style="flex:1;">
+      <span id="thresholdVal" style="font-family:'IBM Plex Mono',monospace;font-size:11px;">0.85</span>
+    </div>
+    <button class="primary-btn" id="analyzeDedupBtn">중복 분석 실행</button>
+    <div id="resultsDedup"></div>
+  </div>
+
+  <!-- ③ 임시 인용 위치 찾기 -->
+  <div class="view-panel" id="view-locator">
+    <p class="sub"><code>[이름 연도]</code>, <code>[이름 (연도)]</code> 형태로 남은 임시 인용을 현재 열린 문서에서 찾습니다.</p>
+    <button class="primary-btn" id="analyzeLocatorBtn">현재 문서 분석</button>
+    <div class="status" id="statusLocator"></div>
+    <div id="resultsLocator"></div>
+  </div>
+
+  <!-- ④ 약어 일관성 체크 -->
+  <div class="view-panel" id="view-abbrev">
+    <p class="sub"><code>풀네임 (ABBR)</code> 정의 이후에도 풀네임이 그대로 재사용된 곳을 찾습니다.</p>
+    <button class="primary-btn" id="analyzeAbbrevBtn">현재 문서 분석</button>
+    <div class="status" id="statusAbbrev"></div>
+    <div id="resultsAbbrev"></div>
+  </div>
+
+  <!-- ⑤ 단어 반복 체크 -->
+  <div class="view-panel" id="view-wordfreq">
+    <p class="sub">전체 단어 빈도(그래프)와 같은 문단 내 근접 반복을 찾습니다.</p>
+    <div class="row">
+      <label style="margin:0;" for="minLenWF">최소 글자수</label>
+      <input type="number" id="minLenWF" value="3" min="1" max="10">
+      <label style="margin:0;" for="minCountWF">최소 등장</label>
+      <input type="number" id="minCountWF" value="4" min="1" max="99">
+    </div>
+    <div class="row">
+      <label style="margin:0;" for="proxThreshWF">근접 기준</label>
+      <input type="number" id="proxThreshWF" value="2" min="2" max="10">
+      <label style="margin:0;" for="stopwordWF">불용어 제외</label>
+      <input type="checkbox" id="stopwordWF" checked>
+    </div>
+    <button class="primary-btn" id="analyzeWFBtn">현재 문서 분석</button>
+    <div class="status" id="statusWF"></div>
+    <div id="resultsWF"></div>
+  </div>
+
+  <div class="info-box">
+    <b>참고:</b> P번호는 Word 본문(body)의 문단을 순서대로 센 것입니다. 표 안 문단은 포함되지 않을 수 있습니다.
+  </div>
+  <div class="footnote">Office.js · 문서 내용은 외부로 전송되지 않습니다</div>
+
+<script>
+/* ============ 공통 유틸 ============ */
+function escapeHtml(s){ return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+function escapeRegExp(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+
+function showStatus(elId, msg, type){
+  const box = document.getElementById(elId);
+  box.textContent = msg;
+  box.className = "status show " + type;
+}
+
+// 열려있는 문서에서 문단 배열을 가져온다. {text, isHeading} 형태로 반환.
+// styleBuiltIn을 사용해 한글/영문 Word 모두에서 안정적으로 헤딩을 판별한다.
+async function getParagraphsFromDoc(){
+  return await Word.run(async (context) => {
+    const paragraphs = context.document.body.paragraphs;
+    paragraphs.load("items");
+    await context.sync();
+    paragraphs.items.forEach(p => p.load("text,styleBuiltIn"));
+    await context.sync();
+    return paragraphs.items.map(p => ({
+      text: (p.text || "").trim(),
+      isHeading: /Heading|Title/i.test(p.styleBuiltIn || "")
+    }));
+  });
+}
+
+// 결과 안의 P번호 버튼을 눌렀을 때 해당 문단으로 이동
+async function goToParagraphByIndex(n){
+  try{
+    await Word.run(async (context) => {
+      const paragraphs = context.document.body.paragraphs;
+      paragraphs.load("items");
+      await context.sync();
+      if (n < 1 || n > paragraphs.items.length) return;
+      paragraphs.items[n - 1].select();
+      await context.sync();
+    });
+  } catch(err){ console.error(err); }
+}
+document.addEventListener("click", (e)=>{
+  if (e.target.classList.contains("goto-btn")){
+    goToParagraphByIndex(parseInt(e.target.dataset.p, 10));
+  }
+});
+
+/* ============ 탭 전환 ============ */
+document.getElementById("viewSelect").addEventListener("change", (e)=>{
+  document.querySelectorAll(".view-panel").forEach(p=>p.classList.remove("active"));
+  document.getElementById("view-" + e.target.value).classList.add("active");
+});
+
+/* ============================================================
+   ① 문단 이동
+   ============================================================ */
+document.getElementById("goBtn").addEventListener("click", async ()=>{
+  const n = parseInt(document.getElementById("paraNum").value, 10);
+  if (!n || n < 1){ showStatus("statusJump", "1 이상의 문단 번호를 입력해 주세요.", "err"); return; }
+  try{
+    await Word.run(async (context)=>{
+      const paragraphs = context.document.body.paragraphs;
+      paragraphs.load("items");
+      await context.sync();
+      const total = paragraphs.items.length;
+      if (n > total){ showStatus("statusJump", `문서 전체 문단 수는 ${total}개입니다.`, "err"); return; }
+      const target = paragraphs.items[n-1];
+      target.load("text");
+      await context.sync();
+      target.select();
+      await context.sync();
+      const preview = target.text.length > 40 ? target.text.slice(0,40)+"…" : target.text;
+      showStatus("statusJump", `P${n}로 이동했습니다.\n"${preview || "(빈 문단)"}"`, "ok");
+    });
+  } catch(err){ showStatus("statusJump", "오류: " + err.message, "err"); }
+});
+
+/* ============================================================
+   ② 중복 레퍼런스 체크 (텍스트 붙여넣기 기반, 문서 파일 아님)
+   ============================================================ */
+const JOURNAL_ALIASES = [
+  [/\bphys\.?\s*rev\.?\s*lett\.?\b/g, "physical review letters"],
+  [/\bprl\b/g, "physical review letters"],
+  [/\bphys\.?\s*rev\.?\s*b\b/g, "physical review b"],
+  [/\bnat\.?\s*phys\.?\b/g, "nature physics"],
+  [/\bnature physics\b/g, "nature physics"],
+  [/\bnat\.?\s*nanotechnol\.?\b/g, "nature nanotechnology"],
+  [/\bnat\.?\s*commun\.?\b/g, "nature communications"],
+  [/\bnature communications\b/g, "nature communications"],
+  [/\bappl\.?\s*phys\.?\s*lett\.?\b/g, "applied physics letters"],
+  [/\brev\.?\s*mod\.?\s*phys\.?\b/g, "reviews of modern physics"],
+  [/\bj\.?\s*appl\.?\s*phys\.?\b/g, "journal of applied physics"],
+  [/\bj\.?\s*korean\s*phys\.?\s*soc\.?\b/g, "journal of the korean physical society"],
+  [/\bj\.?\s*semicond\.?\b/g, "journal of semiconductors"],
+  [/\brev\s*sci\s*instrum\.?\b/g, "review of scientific instruments"],
+  [/\bsurf\s*sci\b/g, "surface science"],
+];
+function normalizeRef(text){
+  let t = text.toLowerCase();
+  for (const [pattern, repl] of JOURNAL_ALIASES){ t = t.replace(pattern, repl); }
+  t = t.replace(/doi:\S+/g, "").replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
+  return t;
+}
+function extractCore(refText){
+  const yearMatch = refText.match(/(19|20)\d{2}/);
+  const year = yearMatch ? yearMatch[0] : "";
+  const firstAuthor = refText.split(",")[0].trim().toLowerCase();
+  return `${firstAuthor} ${year} ${normalizeRef(refText)}`;
+}
+function findLongestMatch(a,b,aStart,aEnd,bStart,bEnd){
+  let bestLen=0, bestI=aStart, bestJ=bStart;
+  for (let i=aStart;i<aEnd;i++) for (let j=bStart;j<bEnd;j++){
+    let k=0; while(i+k<aEnd && j+k<bEnd && a[i+k]===b[j+k]) k++;
+    if (k>bestLen){ bestLen=k; bestI=i; bestJ=j; }
+  }
+  return {i:bestI,j:bestJ,size:bestLen};
+}
+function matchingBlocks(a,b,aStart,aEnd,bStart,bEnd,blocks){
+  const m = findLongestMatch(a,b,aStart,aEnd,bStart,bEnd);
+  if (m.size>0){
+    if (aStart<m.i && bStart<m.j) matchingBlocks(a,b,aStart,m.i,bStart,m.j,blocks);
+    blocks.push(m);
+    if (m.i+m.size<aEnd && m.j+m.size<bEnd) matchingBlocks(a,b,m.i+m.size,aEnd,m.j+m.size,bEnd,blocks);
+  }
+}
+function similarityRatio(a,b){
+  if (a.length===0 && b.length===0) return 1.0;
+  const blocks=[]; matchingBlocks(a,b,0,a.length,0,b.length,blocks);
+  const matches = blocks.reduce((s,m)=>s+m.size,0);
+  return 2*matches/(a.length+b.length);
+}
+function parseReferences(raw){
+  const lines = raw.split("\n").map(l=>l.trim()).filter(l=>l.length>0);
+  const refs = []; const pattern = /^(\d+)\.\s*(.+)$/;
+  for (const line of lines){ const m = line.match(pattern); if (m) refs.push({id:parseInt(m[1],10), raw:m[2].trim()}); }
+  return refs;
+}
+function findDuplicates(refs, threshold){
+  const cores = {}; refs.forEach(r=>{ cores[r.id]=extractCore(r.raw); });
+  const parent = {}; refs.forEach(r=>{ parent[r.id]=r.id; });
+  function find(x){ while(parent[x]!==x){ parent[x]=parent[parent[x]]; x=parent[x]; } return x; }
+  function union(x,y){ const px=find(x),py=find(y); if(px!==py) parent[px]=py; }
+  const pairScores = [];
+  for (let a=0;a<refs.length;a++) for (let b=a+1;b<refs.length;b++){
+    const score = similarityRatio(cores[refs[a].id], cores[refs[b].id]);
+    if (score>=threshold){ pairScores.push([refs[a].id, refs[b].id, score]); union(refs[a].id, refs[b].id); }
+  }
+  const groups = {};
+  refs.forEach(r=>{ const root=find(r.id); if(!groups[root]) groups[root]=[]; groups[root].push(r.id); });
+  const dupGroups = Object.values(groups).filter(g=>g.length>1).map(g=>g.sort((x,y)=>x-y));
+  dupGroups.sort((g1,g2)=>g1[0]-g2[0]);
+  return {dupGroups, pairScores};
+}
+document.getElementById("threshold").addEventListener("input", (e)=>{
+  document.getElementById("thresholdVal").textContent = parseFloat(e.target.value).toFixed(2);
+});
+document.getElementById("analyzeDedupBtn").addEventListener("click", ()=>{
+  const raw = document.getElementById("refInput").value;
+  const threshold = parseFloat(document.getElementById("threshold").value);
+  const refs = parseReferences(raw);
+  const resultsEl = document.getElementById("resultsDedup");
+  if (refs.length===0){ resultsEl.innerHTML = `<div class="empty-note">"번호. 내용" 형식의 줄을 찾지 못했습니다.</div>`; return; }
+  const {dupGroups} = findDuplicates(refs, threshold);
+  const refMap = {}; refs.forEach(r=>{ refMap[r.id]=r.raw; });
+  const dupIdSet = new Set(dupGroups.flat());
+  let html = `<div class="stats-row">
+    <div class="stat"><span class="num">${refs.length}</span><span class="lbl">전체</span></div>
+    <div class="stat"><span class="num">${dupGroups.length}</span><span class="lbl">중복그룹</span></div>
+    <div class="stat"><span class="num">${refs.length - dupGroups.reduce((s,g)=>s+(g.length-1),0)}</span><span class="lbl">고유</span></div>
+  </div>`;
+  if (dupGroups.length===0){ html += `<div class="empty-note">중복 후보가 없습니다.</div>`; }
+  else {
+    dupGroups.forEach(group=>{
+      html += `<div class="card-item"><div class="meta">중복 그룹: ${group.join(", ")}</div>`;
+      group.forEach(id=>{ html += `<div>${id}. ${escapeHtml(refMap[id])}</div>`; });
+      html += `</div>`;
+    });
+  }
+  html += `<h2 class="section-title">전체 목록</h2><table class="mini-table"><thead><tr><th>#</th><th>내용</th><th>상태</th></tr></thead><tbody>`;
+  refs.forEach(r=>{
+    const isDup = dupIdSet.has(r.id);
+    html += `<tr><td>${r.id}</td><td>${escapeHtml(r.raw)}</td><td class="${isDup?'status-dup':'status-uniq'}">${isDup?'중복':'고유'}</td></tr>`;
+  });
+  html += `</tbody></table>`;
+  resultsEl.innerHTML = html;
+});
+
+/* ============================================================
+   ③ 임시 인용 위치 찾기 — 현재 문서 직접 분석
+   ============================================================ */
+const BRACKET_RE = /\[([^\[\]]*)\]/g;
+const NAME_YEAR_RE = /[A-Za-z가-힣][A-Za-z가-힣.\s]*\s*,?\s*\(?\s*(19|20)\d{2}[a-z]?\)?/;
+const YEAR_RE = /(19|20)\d{2}/;
+
+function findPlaceholderRefs(paragraphs){
+  const findings = [];
+  let currentSection = "(문서 시작)";
+  paragraphs.forEach((p, idx)=>{
+    if (p.isHeading && p.text){ currentSection = p.text.length>40 ? p.text.slice(0,40)+"…" : p.text; return; }
+    if (!p.text) return;
+    let m; BRACKET_RE.lastIndex = 0;
+    while ((m = BRACKET_RE.exec(p.text)) !== null){
+      const inner = m[1];
+      if (!YEAR_RE.test(inner)) continue;
+      if (!NAME_YEAR_RE.test(inner)) continue;
+      if (/^[\d,\s;]+$/.test(inner)) continue;
+      const items = inner.split(/[;,]/).map(s=>s.trim()).filter(Boolean);
+      const start = Math.max(0, m.index-50), end = Math.min(p.text.length, m.index+m[0].length+50);
+      let before = p.text.slice(start, m.index), bracket = m[0], after = p.text.slice(m.index+m[0].length, end);
+      if (start>0) before = "…"+before; if (end<p.text.length) after = after+"…";
+      findings.push({ paraIndex: idx+1, section: currentSection, bracket, itemCount: items.length, before, after });
+    }
+  });
+  return findings;
+}
+
+document.getElementById("analyzeLocatorBtn").addEventListener("click", async ()=>{
+  const btn = document.getElementById("analyzeLocatorBtn");
+  btn.disabled = true; showStatus("statusLocator", "문서를 읽는 중...", "ok");
+  try{
+    const paragraphs = await getParagraphsFromDoc();
+    const findings = findPlaceholderRefs(paragraphs);
+    const resultsEl = document.getElementById("resultsLocator");
+    let html = `<div class="stats-row">
+      <div class="stat"><span class="num">${findings.length}</span><span class="lbl">위치</span></div>
+      <div class="stat"><span class="num">${findings.reduce((s,f)=>s+f.itemCount,0)}</span><span class="lbl">항목</span></div>
+      <div class="stat"><span class="num">${paragraphs.length}</span><span class="lbl">전체 문단</span></div>
+    </div>`;
+    if (findings.length===0){ html += `<div class="empty-note">임시 인용을 찾지 못했습니다.</div>`; }
+    else {
+      findings.forEach(f=>{
+        html += `<div class="card-item">
+          <div class="meta"><button class="goto-btn" data-p="${f.paraIndex}">P${f.paraIndex}</button> ${escapeHtml(f.section)}</div>
+          ${escapeHtml(f.before)}<mark>${escapeHtml(f.bracket)}</mark>${escapeHtml(f.after)}
+        </div>`;
+      });
+    }
+    resultsEl.innerHTML = html;
+    document.getElementById("statusLocator").className = "status";
+  } catch(err){ showStatus("statusLocator", "오류: " + err.message, "err"); }
+  finally{ btn.disabled = false; }
+});
+
+/* ============================================================
+   ④ 약어 일관성 체크 — 현재 문서 직접 분석
+   ============================================================ */
+const ABBR_CANDIDATE_RE = /\(([A-Z]{2,6})\)/g;
+function extractFullTermBefore(text, matchIndex, abbr){
+  const precedingText = text.slice(0, matchIndex);
+  const wordRe = /[A-Za-z][A-Za-z-]*/g;
+  const words = []; let wm;
+  while ((wm = wordRe.exec(precedingText)) !== null) words.push(wm[0]);
+  const n = abbr.length;
+  if (words.length < n) return null;
+  const candidateWords = words.slice(words.length - n);
+  const initials = candidateWords.map(w=>w[0].toUpperCase()).join("");
+  if (initials !== abbr.toUpperCase()) return null;
+  return candidateWords.join(" ");
+}
+function findAbbreviations(paragraphs){
+  let currentSection = "(문서 시작)";
+  const paraTexts = [];
+  paragraphs.forEach((p)=>{
+    if (p.isHeading && p.text){ currentSection = p.text.length>40 ? p.text.slice(0,40)+"…" : p.text; }
+    paraTexts.push({ text:p.text, section:currentSection, isHeading:p.isHeading });
+  });
+  const definitions = []; const seenAbbr = new Set();
+  paraTexts.forEach((p, idx)=>{
+    if (p.isHeading || !p.text) return;
+    let m; ABBR_CANDIDATE_RE.lastIndex = 0;
+    while ((m = ABBR_CANDIDATE_RE.exec(p.text)) !== null){
+      const abbr = m[1];
+      if (seenAbbr.has(abbr)) continue;
+      const fullTerm = extractFullTermBefore(p.text, m.index, abbr);
+      if (!fullTerm) continue;
+      seenAbbr.add(abbr);
+      definitions.push({ abbr, fullTerm, defParaIndex: idx, defSection: p.section, defEndPos: m.index+m[0].length });
+    }
+  });
+  const results = definitions.map(def=>{
+    const fullTermPattern = escapeRegExp(def.fullTerm).replace(/\s+/g, "\\s+");
+    const fullTermRe = new RegExp("\\b"+fullTermPattern+"\\b", "gi");
+    const abbrRe = new RegExp("\\b"+def.abbr+"\\b", "g");
+    const reuseLocations = []; let abbrUsageCount = 0;
+    paraTexts.forEach((p, idx)=>{
+      if (!p.text) return;
+      if (idx > def.defParaIndex || idx === def.defParaIndex){
+        let m; fullTermRe.lastIndex = 0;
+        while ((m = fullTermRe.exec(p.text)) !== null){
+          if (idx === def.defParaIndex && m.index < def.defEndPos) continue;
+          const start = Math.max(0, m.index-50), end = Math.min(p.text.length, m.index+m[0].length+50);
+          let before = p.text.slice(start, m.index), after = p.text.slice(m.index+m[0].length, end);
+          if (start>0) before = "…"+before; if (end<p.text.length) after = after+"…";
+          reuseLocations.push({ paraIndex: idx+1, section:p.section, matched:m[0], before, after });
+        }
+      }
+      let am; abbrRe.lastIndex = 0;
+      while ((am = abbrRe.exec(p.text)) !== null) abbrUsageCount++;
+    });
+    return { ...def, defParaIndex: def.defParaIndex+1, reuseLocations, abbrUsageCount };
+  });
+  return results;
+}
+
+document.getElementById("analyzeAbbrevBtn").addEventListener("click", async ()=>{
+  const btn = document.getElementById("analyzeAbbrevBtn");
+  btn.disabled = true; showStatus("statusAbbrev", "문서를 읽는 중...", "ok");
+  try{
+    const paragraphs = await getParagraphsFromDoc();
+    const results = findAbbreviations(paragraphs);
+    const flagged = results.filter(r=>r.reuseLocations.length>0);
+    const resultsEl = document.getElementById("resultsAbbrev");
+    let html = `<div class="stats-row">
+      <div class="stat"><span class="num">${results.length}</span><span class="lbl">약어정의</span></div>
+      <div class="stat"><span class="num">${flagged.length}</span><span class="lbl">확인필요</span></div>
+      <div class="stat"><span class="num">${results.reduce((s,r)=>s+r.reuseLocations.length,0)}</span><span class="lbl">재사용</span></div>
+    </div>`;
+    if (results.length===0){ html += `<div class="empty-note">"풀네임 (ABBR)" 정의를 찾지 못했습니다.</div>`; }
+    else {
+      results.forEach(r=>{
+        const isFlagged = r.reuseLocations.length>0;
+        html += `<div class="card-item">
+          <div class="meta"><b>${escapeHtml(r.abbr)}</b> — ${escapeHtml(r.fullTerm)}
+            <button class="goto-btn" data-p="${r.defParaIndex}">P${r.defParaIndex}</button>
+            <span class="${isFlagged?'status-dup':'status-uniq'}">${isFlagged?'확인 필요':'일관성 있음'}</span>
+          </div>`;
+        r.reuseLocations.forEach(loc=>{
+          html += `<div style="margin-top:4px;"><button class="goto-btn" data-p="${loc.paraIndex}">P${loc.paraIndex}</button> ${escapeHtml(loc.before)}<mark>${escapeHtml(loc.matched)}</mark>${escapeHtml(loc.after)}</div>`;
+        });
+        html += `</div>`;
+      });
+    }
+    resultsEl.innerHTML = html;
+    document.getElementById("statusAbbrev").className = "status";
+  } catch(err){ showStatus("statusAbbrev", "오류: " + err.message, "err"); }
+  finally{ btn.disabled = false; }
+});
+
+/* ============================================================
+   ⑤ 단어 반복 체크 — 현재 문서 직접 분석
+   ============================================================ */
+const STOPWORDS_EN = new Set([
+  "a","an","the","and","or","but","if","then","than","so","as","of","in","on","at","to","for",
+  "from","by","with","without","into","onto","over","under","between","among","through","during",
+  "is","are","was","were","be","been","being","am","this","that","these","those",
+  "it","its","itself","we","our","ours","us","they","their","them","he","she","his","her","him",
+  "you","your","i","my","me","not","no","nor","can","could","may","might","must","shall","should",
+  "will","would","do","does","did","done","have","has","had","having",
+  "which","who","whom","whose","what","when","where","why","how",
+  "also","however","thus","therefore","hence","moreover","furthermore",
+  "both","each","either","neither","one","two","three","more","most","some","any","all","other",
+  "such","very","only","own","same","too","up","down","out","about","again","further",
+  "there","here","while","because","due","per","via","vs","et","al"
+]);
+function tokenizeForFreq(text){
+  const re = /[A-Za-z]+|[가-힣]+/g;
+  const tokens = []; let m;
+  while ((m = re.exec(text)) !== null){
+    const raw = m[0]; const isKorean = /[가-힣]/.test(raw);
+    tokens.push({ raw, norm: isKorean ? raw : raw.toLowerCase(), isKorean });
+  }
+  return tokens;
+}
+function buildParaTextsWF(paragraphs){
+  let currentSection = "(문서 시작)"; const paraTexts = [];
+  paragraphs.forEach((p)=>{
+    if (p.isHeading && p.text){ currentSection = p.text.length>40 ? p.text.slice(0,40)+"…" : p.text; }
+    paraTexts.push({ text:p.text, section:currentSection, isHeading:p.isHeading });
+  });
+  return paraTexts;
+}
+function analyzeWordFrequency(paragraphs, opts){
+  const { minLen, excludeStopwords } = opts;
+  const paraTexts = buildParaTextsWF(paragraphs);
+  const freqMap = {};
+  paraTexts.forEach((p, idx)=>{
+    if (p.isHeading || !p.text) return;
+    tokenizeForFreq(p.text).forEach(t=>{
+      if (t.raw.length < minLen) return;
+      if (!t.isKorean && excludeStopwords && STOPWORDS_EN.has(t.norm)) return;
+      if (!freqMap[t.norm]) freqMap[t.norm] = { count:0, locations:[] };
+      freqMap[t.norm].count++;
+      freqMap[t.norm].locations.push({ paraIndex: idx+1 });
+    });
+  });
+  return freqMap;
+}
+function analyzeProximityRepeats(paragraphs, opts){
+  const { minLen, excludeStopwords, proxThresh } = opts;
+  const paraTexts = buildParaTextsWF(paragraphs);
+  const flagged = [];
+  paraTexts.forEach((p, idx)=>{
+    if (p.isHeading || !p.text) return;
+    const localCount = {};
+    tokenizeForFreq(p.text).forEach(t=>{
+      if (t.raw.length < minLen) return;
+      if (!t.isKorean && excludeStopwords && STOPWORDS_EN.has(t.norm)) return;
+      if (!localCount[t.norm]) localCount[t.norm] = [];
+      localCount[t.norm].push(t);
+    });
+    const repeatedWords = Object.entries(localCount).filter(([w,arr])=>arr.length>=proxThresh);
+    if (repeatedWords.length>0) flagged.push({ paraIndex: idx+1, section:p.section, text:p.text, repeatedWords });
+  });
+  return flagged;
+}
+function highlightParagraph(text, repeatedWords){
+  const words = repeatedWords.map(([norm])=>norm);
+  if (words.length===0) return escapeHtml(text);
+  const pattern = words.map(w=>escapeRegExp(w)).sort((a,b)=>b.length-a.length).join("|");
+  const re = new RegExp("\\b("+pattern+")\\b", "gi");
+  let result = "", lastIndex = 0, m;
+  while ((m = re.exec(text)) !== null){
+    result += escapeHtml(text.slice(lastIndex, m.index));
+    result += "<mark>" + escapeHtml(m[0]) + "</mark>";
+    lastIndex = m.index + m[0].length;
+  }
+  result += escapeHtml(text.slice(lastIndex));
+  return result;
+}
+
+document.getElementById("analyzeWFBtn").addEventListener("click", async ()=>{
+  const btn = document.getElementById("analyzeWFBtn");
+  btn.disabled = true; showStatus("statusWF", "문서를 읽는 중...", "ok");
+  try{
+    const paragraphs = await getParagraphsFromDoc();
+    const minLen = parseInt(document.getElementById("minLenWF").value,10) || 3;
+    const minCount = parseInt(document.getElementById("minCountWF").value,10) || 4;
+    const proxThresh = parseInt(document.getElementById("proxThreshWF").value,10) || 2;
+    const excludeStopwords = document.getElementById("stopwordWF").checked;
+
+    const freqMap = analyzeWordFrequency(paragraphs, {minLen, excludeStopwords});
+    const proximity = analyzeProximityRepeats(paragraphs, {minLen, excludeStopwords, proxThresh});
+
+    const entries = Object.entries(freqMap).map(([word,v])=>({word, count:v.count, locations:v.locations}))
+      .filter(e=>e.count>=minCount).sort((a,b)=>b.count-a.count);
+
+    const resultsEl = document.getElementById("resultsWF");
+    let html = `<div class="stats-row">
+      <div class="stat"><span class="num">${Object.keys(freqMap).length}</span><span class="lbl">고유단어</span></div>
+      <div class="stat"><span class="num">${entries.length}</span><span class="lbl">임계값 이상</span></div>
+      <div class="stat"><span class="num">${proximity.length}</span><span class="lbl">근접반복</span></div>
+    </div>`;
+
+    html += `<h2 class="section-title">전체 빈도 (상위 ${Math.min(15,entries.length)})</h2>`;
+    if (entries.length===0){ html += `<div class="empty-note">임계값 이상 반복된 단어가 없습니다.</div>`; }
+    else {
+      const top = entries.slice(0,15); const maxCount = top[0].count;
+      html += `<div class="chart-box">`;
+      top.forEach(e=>{
+        const pct = (e.count/maxCount*100).toFixed(1);
+        html += `<div class="bar-row"><div class="bar-label">${escapeHtml(e.word)}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%;"></div></div>
+          <div class="bar-count">${e.count}</div></div>`;
+      });
+      html += `</div>`;
+    }
+
+    html += `<h2 class="section-title">근접 반복 (같은 문단 내)</h2>`;
+    if (proximity.length===0){ html += `<div class="empty-note">근접 반복이 없습니다.</div>`; }
+    else {
+      proximity.forEach(p=>{
+        const wordSummary = p.repeatedWords.map(([w,arr])=>`${w}×${arr.length}`).join(", ");
+        html += `<div class="card-item">
+          <div class="meta"><button class="goto-btn" data-p="${p.paraIndex}">P${p.paraIndex}</button> ${escapeHtml(wordSummary)}</div>
+          ${highlightParagraph(p.text, p.repeatedWords)}
+        </div>`;
+      });
+    }
+    resultsEl.innerHTML = html;
+    document.getElementById("statusWF").className = "status";
+  } catch(err){ showStatus("statusWF", "오류: " + err.message, "err"); }
+  finally{ btn.disabled = false; }
+});
+
+/* ============ Office 초기화 ============ */
+Office.onReady((info)=>{
+  if (info.host !== Office.HostType.Word){
+    document.querySelectorAll("button.primary-btn").forEach(b=>b.disabled=true);
+    showStatus("statusJump", "이 도구는 Word에서만 동작합니다.", "err");
+  }
+});
+</script>
+</body>
+</html>

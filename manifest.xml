@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xmlns:bt="http://schemas.microsoft.com/office/officeappbasictypes/1.0"
+           xmlns:ov="http://schemas.microsoft.com/office/taskpaneappversionoverrides"
+           xsi:type="TaskPaneApp">
+
+  <!-- ============================================================
+       배포 전 아래 3곳의 YOUR_USERNAME / YOUR_REPO 를
+       실제 GitHub Pages 주소로 바꿔주세요.
+       예: https://sy-kaist.github.io/word-toolkit
+       ============================================================ -->
+
+  <Id>50e0838a-158b-4216-a5af-930864486c71</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>SY</ProviderName>
+  <DefaultLocale>ko-KR</DefaultLocale>
+  <DisplayName DefaultValue="논문 마무리 점검 도구" />
+  <Description DefaultValue="문단 이동, 레퍼런스 중복 체크, 임시 인용 위치 찾기, 약어 일관성 체크, 단어 반복 체크를 한 번에." />
+  <IconUrl DefaultValue="https://YOUR_USERNAME.github.io/YOUR_REPO/assets/icon-32.png" />
+  <HighResolutionIconUrl DefaultValue="https://YOUR_USERNAME.github.io/YOUR_REPO/assets/icon-80.png" />
+  <SupportUrl DefaultValue="https://YOUR_USERNAME.github.io/YOUR_REPO" />
+
+  <AppDomains>
+    <AppDomain>https://YOUR_USERNAME.github.io</AppDomain>
+  </AppDomains>
+
+  <Hosts>
+    <Host Name="Document" />
+  </Hosts>
+
+  <DefaultSettings>
+    <SourceLocation DefaultValue="https://YOUR_USERNAME.github.io/YOUR_REPO/taskpane.html" />
+  </DefaultSettings>
+
+  <Permissions>ReadWriteDocument</Permissions>
+
+  <VersionOverrides xmlns="http://schemas.microsoft.com/office/taskpaneappversionoverrides" xsi:type="VersionOverridesV1_0">
+    <Hosts>
+      <Host xsi:type="Document">
+        <DesktopFormFactor>
+          <GetStarted>
+            <Title resid="GetStarted.Title" />
+            <Description resid="GetStarted.Description" />
+            <LearnMoreUrl resid="GetStarted.LearnMoreUrl" />
+          </GetStarted>
+          <FunctionFile resid="Taskpane.Url" />
+          <ExtensionPoint xsi:type="PrimaryCommandSurface">
+            <OfficeTab id="TabHome">
+              <Group id="CommandsGroup">
+                <Label resid="CommandsGroup.Label" />
+                <Icon>
+                  <bt:Image size="16" resid="Icon.16x16" />
+                  <bt:Image size="32" resid="Icon.32x32" />
+                  <bt:Image size="80" resid="Icon.80x80" />
+                </Icon>
+                <Control xsi:type="Button" id="TaskpaneButton">
+                  <Label resid="TaskpaneButton.Label" />
+                  <Supertip>
+                    <Title resid="TaskpaneButton.Label" />
+                    <Description resid="TaskpaneButton.Tooltip" />
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Icon.16x16" />
+                    <bt:Image size="32" resid="Icon.32x32" />
+                    <bt:Image size="80" resid="Icon.80x80" />
+                  </Icon>
+                  <Action xsi:type="ShowTaskpane">
+                    <TaskpaneId>ButtonId1</TaskpaneId>
+                    <SourceLocation resid="Taskpane.Url" />
+                  </Action>
+                </Control>
+              </Group>
+            </OfficeTab>
+          </ExtensionPoint>
+        </DesktopFormFactor>
+      </Host>
+    </Hosts>
+    <Resources>
+      <bt:Images>
+        <bt:Image id="Icon.16x16" DefaultValue="https://YOUR_USERNAME.github.io/YOUR_REPO/assets/icon-16.png" />
+        <bt:Image id="Icon.32x32" DefaultValue="https://YOUR_USERNAME.github.io/YOUR_REPO/assets/icon-32.png" />
+        <bt:Image id="Icon.80x80" DefaultValue="https://YOUR_USERNAME.github.io/YOUR_REPO/assets/icon-80.png" />
+      </bt:Images>
+      <bt:Urls>
+        <bt:Url id="Taskpane.Url" DefaultValue="https://YOUR_USERNAME.github.io/YOUR_REPO/taskpane.html" />
+        <bt:Url id="GetStarted.LearnMoreUrl" DefaultValue="https://YOUR_USERNAME.github.io/YOUR_REPO" />
+      </bt:Urls>
+      <bt:ShortStrings>
+        <bt:String id="GetStarted.Title" DefaultValue="논문 점검 도구가 추가되었습니다" />
+        <bt:String id="CommandsGroup.Label" DefaultValue="논문 점검" />
+        <bt:String id="TaskpaneButton.Label" DefaultValue="논문 점검" />
+      </bt:ShortStrings>
+      <bt:LongStrings>
+        <bt:String id="GetStarted.Description" DefaultValue="리본의 [논문 점검] 버튼을 눌러 작업창을 여세요." />
+        <bt:String id="TaskpaneButton.Tooltip" DefaultValue="문단 이동, 레퍼런스 중복, 임시 인용, 약어, 단어 반복을 한 번에 점검합니다." />
+      </bt:LongStrings>
+    </Resources>
+  </VersionOverrides>
+</OfficeApp>
