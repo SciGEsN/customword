@@ -134,6 +134,7 @@
     <option value="locator">③ 임시 인용 위치 찾기</option>
     <option value="abbrev">④ 약어 일관성 체크</option>
     <option value="wordfreq">⑤ 단어 반복 체크</option>
+    <option value="selectcount">⑥ 선택/챕터 단어 수</option>
   </select>
 
   <!-- ① 문단 이동 -->
@@ -197,6 +198,35 @@
     <div id="resultsWF"></div>
   </div>
 
+  <!-- ⑥ 선택/챕터 단어 수 -->
+  <div class="view-panel" id="view-selectcount">
+    <p class="sub"><b>A. 선택 영역 단어 수 + 기록</b><br>지금 드래그해서 선택한 부분의 단어 수를 세고, 기록으로 남깁니다. 기록은 문서 파일 안에 저장되어 파일을 옮겨도 유지됩니다.</p>
+    <div class="row">
+      <button class="primary-btn" id="countSelBtn">선택 영역 세기</button>
+      <span id="selCountDisplay" style="font-family:'IBM Plex Mono',monospace; font-size:13px; color:var(--ink-navy); font-weight:600;"></span>
+    </div>
+    <div class="row">
+      <input type="text" id="selLabelInput" placeholder="메모 (선택, 예: 3장 초안)" style="flex:1; font-family:'IBM Plex Mono',monospace; font-size:11px; padding:7px 8px; border:1px solid var(--line); border-radius:2px; background:#FBF8F1;">
+      <button class="primary-btn" id="recordSelBtn" disabled>기록하기</button>
+    </div>
+    <div class="status" id="statusSelCount"></div>
+    <div id="selCountLog"></div>
+
+    <div class="divider" style="height:1px;background:var(--line);margin:20px 0;"></div>
+
+    <p class="sub"><b>B. 챕터(헤딩)별 단어 수</b><br>헤딩 스타일 문단을 기준으로 구간을 나눠 각 챕터의 단어 수를 집계합니다.</p>
+    <button class="primary-btn" id="analyzeChapterBtn">챕터별 집계 실행</button>
+    <div class="status" id="statusChapter"></div>
+    <div id="resultsChapter"></div>
+
+    <div class="divider" style="height:1px;background:var(--line);margin:20px 0;"></div>
+
+    <p class="sub"><b>C. 같은 스타일 전체 단어 수</b><br>지금 선택한 부분의 문단 스타일을 파악해서, 문서 전체에서 같은 스타일로 된 문단들의 단어 수를 합산합니다.</p>
+    <button class="primary-btn" id="analyzeStyleBtn">선택 스타일로 집계</button>
+    <div class="status" id="statusStyle"></div>
+    <div id="resultsStyle"></div>
+  </div>
+
   <div class="info-box">
     <b>참고:</b> P번호는 Word 본문(body)의 문단을 순서대로 센 것입니다. 표 안 문단은 포함되지 않을 수 있습니다.
   </div>
@@ -220,11 +250,12 @@ async function getParagraphsFromDoc(){
     const paragraphs = context.document.body.paragraphs;
     paragraphs.load("items");
     await context.sync();
-    paragraphs.items.forEach(p => p.load("text,styleBuiltIn"));
+    paragraphs.items.forEach(p => p.load("text,styleBuiltIn,style"));
     await context.sync();
     return paragraphs.items.map(p => ({
       text: (p.text || "").trim(),
-      isHeading: /Heading|Title/i.test(p.styleBuiltIn || "")
+      isHeading: /Heading|Title/i.test(p.styleBuiltIn || ""),
+      style: p.style || ""
     }));
   });
 }
@@ -672,6 +703,198 @@ document.getElementById("analyzeWFBtn").addEventListener("click", async ()=>{
     resultsEl.innerHTML = html;
     document.getElementById("statusWF").className = "status";
   } catch(err){ showStatus("statusWF", "오류: " + err.message, "err"); }
+  finally{ btn.disabled = false; }
+});
+
+/* ============================================================
+   ⑥-A 선택 영역 단어 수 + 기록
+   ============================================================ */
+function countWords(text){
+  const matches = (text || "").match(/[A-Za-z0-9]+|[가-힣]+/g);
+  return matches ? matches.length : 0;
+}
+
+let lastSelectionCount = null;
+
+document.getElementById("countSelBtn").addEventListener("click", async ()=>{
+  try{
+    await Word.run(async (context)=>{
+      const range = context.document.getSelection();
+      range.load("text");
+      await context.sync();
+      const count = countWords(range.text);
+      lastSelectionCount = count;
+      document.getElementById("selCountDisplay").textContent = `${count} 단어`;
+      document.getElementById("recordSelBtn").disabled = false;
+    });
+  } catch(err){ showStatus("statusSelCount", "오류: " + err.message, "err"); }
+});
+
+async function getLog(){
+  return await Word.run(async (context)=>{
+    const settings = context.document.settings;
+    const setting = settings.getItemOrNullObject("wordCountLog");
+    setting.load("value");
+    await context.sync();
+    if (setting.isNullObject || !setting.value) return [];
+    try{ return JSON.parse(setting.value); } catch(e){ return []; }
+  });
+}
+async function saveLog(log){
+  await Word.run(async (context)=>{
+    context.document.settings.add("wordCountLog", JSON.stringify(log));
+    await context.sync();
+  });
+}
+
+document.getElementById("recordSelBtn").addEventListener("click", async ()=>{
+  if (lastSelectionCount === null) return;
+  const label = document.getElementById("selLabelInput").value.trim();
+  try{
+    const log = await getLog();
+    log.push({ ts: new Date().toISOString(), count: lastSelectionCount, label });
+    await saveLog(log);
+    document.getElementById("selLabelInput").value = "";
+    showStatus("statusSelCount", "기록했습니다.", "ok");
+    renderLog(log);
+  } catch(err){ showStatus("statusSelCount", "오류: " + err.message, "err"); }
+});
+
+function renderLog(log){
+  const el = document.getElementById("selCountLog");
+  if (!log || log.length===0){ el.innerHTML = `<div class="empty-note">기록된 항목이 없습니다.</div>`; return; }
+  let html = `<table class="mini-table"><thead><tr><th>시간</th><th>메모</th><th>단어수</th><th>증감</th><th></th></tr></thead><tbody>`;
+  log.forEach((entry, i)=>{
+    const prev = i>0 ? log[i-1].count : null;
+    const delta = prev===null ? "—" : (entry.count-prev>=0 ? "+"+(entry.count-prev) : String(entry.count-prev));
+    const dt = new Date(entry.ts);
+    const dtStr = `${dt.getMonth()+1}/${dt.getDate()} ${String(dt.getHours()).padStart(2,"0")}:${String(dt.getMinutes()).padStart(2,"0")}`;
+    html += `<tr><td>${dtStr}</td><td>${escapeHtml(entry.label||"")}</td><td>${entry.count}</td><td>${delta}</td>
+      <td><button class="goto-btn" data-delidx="${i}">삭제</button></td></tr>`;
+  });
+  html += `</tbody></table><div class="row" style="margin-top:8px;"><button class="goto-btn" id="clearLogBtn">전체 기록 삭제</button></div>`;
+  el.innerHTML = html;
+
+  el.querySelectorAll("[data-delidx]").forEach(btn=>{
+    btn.addEventListener("click", async ()=>{
+      const idx = parseInt(btn.dataset.delidx, 10);
+      const current = await getLog();
+      current.splice(idx, 1);
+      await saveLog(current);
+      renderLog(current);
+    });
+  });
+  const clearBtn = document.getElementById("clearLogBtn");
+  if (clearBtn) clearBtn.addEventListener("click", async ()=>{
+    await saveLog([]);
+    renderLog([]);
+  });
+}
+
+// 탭 진입 시 기존 기록 불러오기
+document.getElementById("viewSelect").addEventListener("change", async (e)=>{
+  if (e.target.value === "selectcount"){
+    try{ renderLog(await getLog()); } catch(err){ /* 문서 미지원 시 무시 */ }
+  }
+});
+
+/* ============================================================
+   ⑥-B 챕터(헤딩)별 단어 수
+   ============================================================ */
+function groupByChapter(paragraphs){
+  const chapters = [];
+  let current = null;
+  paragraphs.forEach((p, idx)=>{
+    if (p.isHeading && p.text){
+      current = { title: p.text, startPara: idx+1, wordCount: 0 };
+      chapters.push(current);
+      return;
+    }
+    if (!p.text) return;
+    if (!current){
+      current = { title: "(첫 헤딩 이전)", startPara: idx+1, wordCount: 0 };
+      chapters.push(current);
+    }
+    current.wordCount += countWords(p.text);
+  });
+  return chapters;
+}
+
+document.getElementById("analyzeChapterBtn").addEventListener("click", async ()=>{
+  const btn = document.getElementById("analyzeChapterBtn");
+  btn.disabled = true; showStatus("statusChapter", "문서를 읽는 중...", "ok");
+  try{
+    const paragraphs = await getParagraphsFromDoc();
+    const chapters = groupByChapter(paragraphs);
+    const resultsEl = document.getElementById("resultsChapter");
+    if (chapters.length===0){ resultsEl.innerHTML = `<div class="empty-note">헤딩 스타일 문단을 찾지 못했습니다.</div>`; }
+    else {
+      const maxCount = Math.max(...chapters.map(c=>c.wordCount), 1);
+      let html = `<div class="chart-box">`;
+      chapters.forEach(c=>{
+        const pct = (c.wordCount/maxCount*100).toFixed(1);
+        const label = c.title.length>10 ? c.title.slice(0,10)+"…" : c.title;
+        html += `<div class="bar-row"><div class="bar-label">${escapeHtml(label)}</div>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%;"></div></div>
+          <div class="bar-count">${c.wordCount}</div></div>`;
+      });
+      html += `</div><table class="mini-table"><thead><tr><th>챕터</th><th>단어수</th><th></th></tr></thead><tbody>`;
+      chapters.forEach(c=>{
+        html += `<tr><td>${escapeHtml(c.title)}</td><td>${c.wordCount}</td><td><button class="goto-btn" data-p="${c.startPara}">P${c.startPara}</button></td></tr>`;
+      });
+      html += `</tbody></table>`;
+      resultsEl.innerHTML = html;
+    }
+    document.getElementById("statusChapter").className = "status";
+  } catch(err){ showStatus("statusChapter", "오류: " + err.message, "err"); }
+  finally{ btn.disabled = false; }
+});
+
+/* ============================================================
+   ⑥-C 선택 영역과 같은 스타일 전체 단어 수
+   ============================================================ */
+document.getElementById("analyzeStyleBtn").addEventListener("click", async ()=>{
+  const btn = document.getElementById("analyzeStyleBtn");
+  btn.disabled = true; showStatus("statusStyle", "선택 영역 스타일 확인 중...", "ok");
+  try{
+    const targetStyle = await Word.run(async (context)=>{
+      const range = context.document.getSelection();
+      const paras = range.paragraphs;
+      paras.load("items");
+      await context.sync();
+      if (paras.items.length===0) return null;
+      paras.items[0].load("style");
+      await context.sync();
+      return paras.items[0].style;
+    });
+    if (!targetStyle){
+      showStatus("statusStyle", "먼저 문서에서 텍스트를 선택해 주세요.", "err");
+      btn.disabled = false; return;
+    }
+    const paragraphs = await getParagraphsFromDoc();
+    const matched = paragraphs
+      .map((p, idx)=>({ ...p, paraIndex: idx+1 }))
+      .filter(p => p.style === targetStyle && p.text);
+    const totalWords = matched.reduce((s,p)=>s+countWords(p.text), 0);
+
+    const resultsEl = document.getElementById("resultsStyle");
+    let html = `<div class="stats-row">
+      <div class="stat"><span class="num">${escapeHtml(targetStyle)}</span><span class="lbl">스타일</span></div>
+      <div class="stat"><span class="num">${matched.length}</span><span class="lbl">문단수</span></div>
+      <div class="stat"><span class="num">${totalWords}</span><span class="lbl">총 단어수</span></div>
+    </div>`;
+    if (matched.length===0){ html += `<div class="empty-note">같은 스타일의 다른 문단을 찾지 못했습니다.</div>`; }
+    else {
+      html += `<table class="mini-table"><thead><tr><th></th><th>내용</th><th>단어수</th></tr></thead><tbody>`;
+      matched.forEach(p=>{
+        const preview = p.text.length>30 ? p.text.slice(0,30)+"…" : p.text;
+        html += `<tr><td><button class="goto-btn" data-p="${p.paraIndex}">P${p.paraIndex}</button></td><td>${escapeHtml(preview)}</td><td>${countWords(p.text)}</td></tr>`;
+      });
+      html += `</tbody></table>`;
+    }
+    resultsEl.innerHTML = html;
+    document.getElementById("statusStyle").className = "status";
+  } catch(err){ showStatus("statusStyle", "오류: " + err.message, "err"); }
   finally{ btn.disabled = false; }
 });
 
