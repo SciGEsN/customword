@@ -135,6 +135,7 @@
     <option value="abbrev">④ 약어 일관성 체크</option>
     <option value="wordfreq">⑤ 단어 반복 체크</option>
     <option value="selectcount">⑥ 선택/챕터 단어 수</option>
+    <option value="reviewnav">⑦ 리뷰 코멘트 내비게이터</option>
   </select>
 
   <!-- ① 문단 이동 -->
@@ -229,6 +230,18 @@
     <button class="primary-btn" id="analyzeStyleBtn">선택 스타일로 집계</button>
     <div class="status" id="statusStyle"></div>
     <div id="resultsStyle"></div>
+  </div>
+
+  <!-- ⑦ 리뷰 코멘트 내비게이터 -->
+  <div class="view-panel" id="view-reviewnav">
+    <p class="sub">리뷰 JSON을 붙여넣으면 코멘트 목록이 표시됩니다. 각 항목을 클릭하면 문서에서 해당 원문 위치를 찾아 선택합니다.</p>
+    <label for="reviewJsonInput">리뷰 JSON</label>
+    <textarea id="reviewJsonInput" placeholder='{"meta":{...},"comments":[{"id":"C1","severity":"critical","title":"...","anchor":"원문 인용구","note":"..."}]}'></textarea>
+    <div class="row" style="margin-top:10px;">
+      <button class="primary-btn" id="loadReviewBtn">리뷰 불러오기</button>
+    </div>
+    <div class="status" id="statusReview"></div>
+    <div id="resultsReview"></div>
   </div>
 
   <div class="info-box">
@@ -929,6 +942,128 @@ document.getElementById("analyzeStyleBtn").addEventListener("click", async ()=>{
   } catch(err){ showStatus("statusStyle", "오류: " + err.message, "err"); }
   finally{ btn.disabled = false; }
 });
+
+/* ============================================================
+   ⑦ 리뷰 코멘트 내비게이터
+   ============================================================ */
+const SEV_LABEL = { critical: "Critical", major: "Major", minor: "Minor" };
+const SEV_ORDER = { critical: 0, major: 1, minor: 2 };
+
+// Office.js search는 255자 제한 + 와일드카드 문자 이슈가 있으므로 앵커를 안전하게 가공
+function sanitizeAnchor(anchor){
+  let a = (anchor || "").replace(/\s+/g, " ").trim();
+  if (a.length > 200) a = a.slice(0, 200);
+  return a;
+}
+
+// 단어 경계에서 자르기 (잘린 단어 조각으로 인한 검색 실패 방지)
+function cutAtWordBoundary(text, maxLen){
+  if (text.length <= maxLen) return text;
+  const cut = text.slice(0, maxLen);
+  const lastSpace = cut.lastIndexOf(" ");
+  return (lastSpace > 0 ? cut.slice(0, lastSpace) : cut).trim();
+}
+
+async function locateAnchor(anchor){
+  const query = sanitizeAnchor(anchor);
+  if (!query) return { found: false, reason: "앵커 텍스트가 비어 있습니다." };
+  // 1차: 전체 앵커 → 2차: 앞 60자(단어경계) → 3차: 앞 30자(단어경계)
+  const attempts = [query];
+  for (const len of [60, 30]){
+    if (query.length > len){
+      const cut = cutAtWordBoundary(query, len);
+      if (cut && !attempts.includes(cut)) attempts.push(cut);
+    }
+  }
+  for (const q of attempts){
+    const found = await Word.run(async (context)=>{
+      const results = context.document.body.search(q, { matchCase: false, ignorePunct: true });
+      results.load("items");
+      await context.sync();
+      if (results.items.length === 0) return false;
+      results.items[0].select();
+      await context.sync();
+      return true;
+    });
+    if (found) return { found: true, partial: q !== query };
+  }
+  return { found: false, reason: "원문이 수정되었거나 찾을 수 없습니다." };
+}
+
+let loadedReview = null;
+
+document.getElementById("loadReviewBtn").addEventListener("click", ()=>{
+  const raw = document.getElementById("reviewJsonInput").value.trim();
+  if (!raw){ showStatus("statusReview", "JSON을 붙여넣어 주세요.", "err"); return; }
+  try{
+    const data = JSON.parse(raw);
+    if (!Array.isArray(data.comments)) throw new Error("comments 배열이 없습니다.");
+    loadedReview = data;
+    renderReview(data);
+    document.getElementById("statusReview").className = "status";
+  } catch(err){
+    showStatus("statusReview", "JSON 파싱 오류: " + err.message, "err");
+  }
+});
+
+function renderReview(data){
+  const el = document.getElementById("resultsReview");
+  const comments = [...data.comments].sort((a,b)=>
+    (SEV_ORDER[a.severity] ?? 9) - (SEV_ORDER[b.severity] ?? 9));
+
+  const counts = { critical:0, major:0, minor:0 };
+  comments.forEach(c=>{ if (counts[c.severity] !== undefined) counts[c.severity]++; });
+
+  let html = `<div class="stats-row">
+    <div class="stat"><span class="num" style="color:var(--stamp-red);">${counts.critical}</span><span class="lbl">Critical</span></div>
+    <div class="stat"><span class="num" style="color:#9A6B15;">${counts.major}</span><span class="lbl">Major</span></div>
+    <div class="stat"><span class="num">${counts.minor}</span><span class="lbl">Minor</span></div>
+  </div>`;
+
+  if (data.meta && data.meta.title){
+    html += `<div class="sub" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--ink-soft);margin-bottom:10px;">${escapeHtml(data.meta.title)} · ${escapeHtml(data.meta.date||"")}</div>`;
+  }
+
+  comments.forEach((c, i)=>{
+    const sevColor = c.severity==="critical" ? "var(--stamp-red)" : (c.severity==="major" ? "#9A6B15" : "var(--brass)");
+    html += `<div class="card-item review-item" data-ridx="${i}" style="cursor:pointer; border-left:4px solid ${sevColor};">
+      <div class="meta">
+        <b style="color:${sevColor};">${escapeHtml(c.id||"")}</b>
+        <span>${escapeHtml(SEV_LABEL[c.severity]||c.severity||"")}</span>
+        <span>· ${escapeHtml(c.section||"")}</span>
+        <span class="review-locstate" id="locstate-${i}" style="margin-left:auto;"></span>
+      </div>
+      <div style="font-weight:600;">${escapeHtml(c.title||"")}</div>
+      ${c.note ? `<div style="font-size:11.5px; color:var(--ink-soft); margin-top:3px;">${escapeHtml(c.note)}</div>` : ""}
+    </div>`;
+  });
+
+  el.innerHTML = html;
+
+  // 정렬된 배열을 클릭 핸들러에서 그대로 참조
+  el.querySelectorAll(".review-item").forEach(item=>{
+    item.addEventListener("click", async ()=>{
+      const idx = parseInt(item.dataset.ridx, 10);
+      const c = comments[idx];
+      const stateEl = document.getElementById("locstate-" + idx);
+      stateEl.textContent = "검색 중...";
+      stateEl.style.color = "var(--ink-soft)";
+      try{
+        const r = await locateAnchor(c.anchor);
+        if (r.found){
+          stateEl.textContent = r.partial ? "이동됨 (부분 일치)" : "이동됨 ✓";
+          stateEl.style.color = "var(--ok-green)";
+        } else {
+          stateEl.textContent = "찾지 못함";
+          stateEl.style.color = "var(--stamp-red)";
+        }
+      } catch(err){
+        stateEl.textContent = "오류";
+        stateEl.style.color = "var(--stamp-red)";
+      }
+    });
+  });
+}
 
 /* ============ Office 초기화 ============ */
 Office.onReady((info)=>{
